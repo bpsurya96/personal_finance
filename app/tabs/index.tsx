@@ -15,6 +15,7 @@ const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const userRecord = useAuthStore(s => s.userRecord);
+  const isPro = useAuthStore(s => s.isPro);
   
   // Data from stores
   const expenses = useExpenseStore(s => s.expenses);

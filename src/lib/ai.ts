@@ -12,9 +12,9 @@ export async function extractReceiptData(base64Image: string) {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-image" });
     const prompt = "Analyze this receipt. Return ONLY a raw JSON object with the following keys: 'merchant' (string, the name of the store), 'amount' (number, the final total cost), and 'date' (string, ISO format if available). Do not include markdown code blocks or any other text.";
-    
+
     const image = {
       inlineData: {
         data: base64Image,
@@ -24,7 +24,7 @@ export async function extractReceiptData(base64Image: string) {
 
     const result = await model.generateContent([prompt, image]);
     const responseText = result.response.text();
-    
+
     const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanJson);
   } catch (error) {
