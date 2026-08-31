@@ -1,336 +1,236 @@
-import React, { useMemo } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, StatusBar, Dimensions,
-} from 'react-native';
-import { router } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
-import { useExpenseStore } from '../../src/store/useExpenseStore';
-import { useInvestmentStore } from '../../src/store/useInvestmentStore';
-import { useFIREStore } from '../../src/store/useFIREStore';
-import { useProfileStore } from '../../src/store/useProfileStore';
-import { Colors, Spacing, Radius, FontSize, INVESTMENT_TYPES } from '../../src/constants/theme';
-import { formatCurrency } from '../../src/utils/calculations';
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors, FontSize, Spacing, Radius } from "../../src/constants/theme";
+import { Feather, FontAwesome5 } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useAuthStore } from "../../src/store/useAuthStore";
+import { useExpenseStore } from "../../src/store/useExpenseStore";
+import { useInvestmentStore } from "../../src/store/useInvestmentStore";
+import { useLiabilityStore } from "../../src/store/useLiabilityStore";
+import { useIncomeStore } from "../../src/store/useIncomeStore";
+import { useFIREStore } from "../../src/store/useFIREStore";
 
 const { width } = Dimensions.get('window');
 
-export default function DashboardScreen() {
-  const { expenses, getExpensesByMonth } = useExpenseStore();
-  const { investments, getTotalCurrentValue, getTotalInvested } = useInvestmentStore();
-  const { config, result, calculate } = useFIREStore();
-  const { husband, wife, familyName } = useProfileStore();
+export default function HomeScreen() {
+  const userRecord = useAuthStore(s => s.userRecord);
+  
+  // Data from stores
+  const expenses = useExpenseStore(s => s.expenses);
+  const investments = useInvestmentStore(s => s.investments);
+  const liabilities = useLiabilityStore(s => s.liabilities);
+  const getTotalYearlySalary = useIncomeStore(s => s.getTotalYearlySalary);
+  const totalYearlySalary = getTotalYearlySalary();
+  const getTotalYearlyPassive = useIncomeStore(s => s.getTotalYearlyPassive);
+  const totalYearlyPassive = getTotalYearlyPassive();
+  
+  const fireTarget = useFIREStore(s => s.targetCorpus) || 50000000;
 
-  const now = new Date();
-  const monthExpenses = getExpensesByMonth(now.getFullYear(), now.getMonth());
-  const totalThisMonth = monthExpenses.reduce((s, e) => s + e.amount, 0);
-  const husbandTotal = monthExpenses.filter(e => e.addedBy === 'husband').reduce((s, e) => s + e.amount, 0);
-  const wifeTotal = monthExpenses.filter(e => e.addedBy === 'wife').reduce((s, e) => s + e.amount, 0);
+  // Calculations
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const currentMonthExpenses = expenses
+    .filter(e => {
+      const d = new Date(e.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    })
+    .reduce((s, e) => s + e.amount, 0);
 
-  const totalInvested = getTotalInvested();
-  const totalCurrentValue = getTotalCurrentValue();
-  const netWorth = totalCurrentValue;
-  const gainLoss = totalCurrentValue - totalInvested;
-  const gainPercent = totalInvested > 0 ? (gainLoss / totalInvested) * 100 : 0;
-
-  // FIRE progress
-  const fireProgress = result?.progress.regular ?? 0;
-  const fireYears = result?.yearsToFIRE.regular ?? 20;
-
-  // Recalculate FIRE with current corpus
-  React.useEffect(() => {
-    calculate(totalCurrentValue);
-  }, [totalCurrentValue]);
-
-  const recentExpenses = expenses.slice(0, 5);
-
-  const greetingHour = now.getHours();
-  const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 17 ? 'Good afternoon' : 'Good evening';
+  const totalInvestments = investments.reduce((s, i) => s + i.currentValue, 0);
+  const totalLiabilities = liabilities.reduce((s, l) => s + (l.totalAmount - l.paidAmount), 0);
+  const netWorth = totalInvestments - totalLiabilities;
+  const fireProgress = Math.min((netWorth / fireTarget) * 100, 100);
+  
+  const formatCurrency = (n: number) =>
+    "₹" + (n >= 100000 ? (n / 100000).toFixed(2) + "L" : n >= 1000 ? (n / 1000).toFixed(1) + "K" : n.toFixed(0));
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bgPrimary} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      {/* Top Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Overview</Text>
+        <TouchableOpacity onPress={() => router.push("/tabs/profile")}>
+          <Feather name="user" size={24} color={Colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greeting} 👋</Text>
-            <Text style={styles.familyName}>{familyName}</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        
+        {/* Main Net Worth Card */}
+        <TouchableOpacity style={[styles.networthCard, { backgroundColor: '#1e3c72' }]} activeOpacity={0.9}>
+          <View style={styles.networthContent}>
+            <View>
+              <Text style={styles.networthLabel}>Total Net Worth</Text>
+              <View style={styles.networthValueRow}>
+                <Text style={styles.networthValue}>{formatCurrency(netWorth)}</Text>
+                <Feather name="shield" size={16} color="rgba(255,255,255,0.7)" />
+              </View>
+            </View>
+            <View style={styles.networthIconBg}>
+              <Feather name="trending-up" size={24} color="#FFF" />
+            </View>
           </View>
-          <TouchableOpacity onPress={() => router.push('/tabs/profile')} style={styles.avatarBtn}>
-            <Text style={styles.avatarText}>💜</Text>
+        </TouchableOpacity>
+
+        {/* Data Grid */}
+        <View style={styles.grid}>
+          {/* Income block */}
+          <TouchableOpacity 
+            style={styles.gridCard} activeOpacity={0.7}
+            onPress={() => router.push("/tabs/money?tab=Income")}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#E0F2FE' }]}>
+              <Feather name="briefcase" size={18} color="#0284C7" />
+            </View>
+            <Text style={styles.gridLabel}>Salary (Yearly)</Text>
+            <Text style={styles.gridValue}>{formatCurrency(totalYearlySalary)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.gridCard} activeOpacity={0.7}
+            onPress={() => router.push("/tabs/money?tab=Income")}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#DCFCE7' }]}>
+              <Feather name="refresh-cw" size={18} color="#16A34A" />
+            </View>
+            <Text style={styles.gridLabel}>Passive (Yearly)</Text>
+            <Text style={styles.gridValue}>{formatCurrency(totalYearlyPassive)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.gridCard} activeOpacity={0.7}
+            onPress={() => router.push("/tabs/money?tab=Invest")}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#F3E8FF' }]}>
+              <FontAwesome5 name="chart-pie" size={16} color="#9333EA" />
+            </View>
+            <Text style={styles.gridLabel}>Total Investment</Text>
+            <Text style={styles.gridValue}>{formatCurrency(totalInvestments)}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.gridCard} activeOpacity={0.7}
+            onPress={() => router.push("/tabs/liabilities")}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#FFEDD5' }]}>
+              <Feather name="credit-card" size={18} color="#EA580C" />
+            </View>
+            <Text style={styles.gridLabel}>Total Liabilities</Text>
+            <Text style={styles.gridValue}>{formatCurrency(totalLiabilities)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.gridCard} activeOpacity={0.9}>
+            <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
+              <Feather name="shopping-bag" size={18} color="#DC2626" />
+            </View>
+            <Text style={styles.gridLabel}>Month Expenses</Text>
+            <Text style={styles.gridValue}>{formatCurrency(currentMonthExpenses)}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Net Worth Hero Card */}
-        <View style={styles.netWorthCard}>
-          <View style={styles.netWorthGlow} />
-          <Text style={styles.netWorthLabel}>Total Net Worth</Text>
-          <Text style={styles.netWorthValue}>{formatCurrency(netWorth)}</Text>
-          <View style={styles.netWorthBadge}>
-            <Feather
-              name={gainLoss >= 0 ? 'trending-up' : 'trending-down'}
-              size={14}
-              color={gainLoss >= 0 ? Colors.emerald : Colors.red}
-            />
-            <Text style={[styles.netWorthChange, { color: gainLoss >= 0 ? Colors.emerald : Colors.red }]}>
-              {gainLoss >= 0 ? '+' : ''}{formatCurrency(gainLoss, true)} ({gainPercent.toFixed(1)}%)
-            </Text>
-          </View>
-          <View style={styles.netWorthMeta}>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Invested</Text>
-              <Text style={styles.metaValue}>{formatCurrency(totalInvested, true)}</Text>
-            </View>
-            <View style={styles.metaDivider} />
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Investments</Text>
-              <Text style={styles.metaValue}>{investments.length}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* This Month Card */}
-        <View style={styles.sectionRow}>
-          <View style={[styles.smallCard, { flex: 1.2 }]}>
-            <View style={styles.cardHeader}>
-              <Feather name="credit-card" size={16} color={Colors.amber} />
-              <Text style={styles.cardTitle}>This Month</Text>
-            </View>
-            <Text style={styles.cardValue}>{formatCurrency(totalThisMonth, true)}</Text>
-            <View style={styles.splitRow}>
-              <View style={styles.splitItem}>
-                <View style={[styles.splitDot, { backgroundColor: Colors.husband }]} />
-                <Text style={styles.splitName}>{husband.name.split(' ')[0]}</Text>
-                <Text style={styles.splitAmt}>{formatCurrency(husbandTotal, true)}</Text>
+        {/* FIRE Forecast Card */}
+        <Text style={styles.sectionTitle}>FIRE Journey</Text>
+        <TouchableOpacity style={styles.fireCard} activeOpacity={0.9}>
+          <View style={styles.fireHeader}>
+            <View style={styles.fireHeaderLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#FEF3C7' }]}>
+                <Feather name="flag" size={18} color="#D97706" />
               </View>
-              <View style={styles.splitItem}>
-                <View style={[styles.splitDot, { backgroundColor: Colors.wife }]} />
-                <Text style={styles.splitName}>{wife.name.split(' ')[0]}</Text>
-                <Text style={styles.splitAmt}>{formatCurrency(wifeTotal, true)}</Text>
+              <View>
+                <Text style={styles.fireCardTitle}>FIRE Goal</Text>
+                <Text style={styles.fireCardSubtitle}>Target: {formatCurrency(fireTarget)}</Text>
               </View>
             </View>
+            <Text style={styles.firePercent}>{fireProgress.toFixed(1)}%</Text>
           </View>
-
-          {/* FIRE Mini Card */}
-          <View style={[styles.smallCard, { flex: 1, marginLeft: Spacing.sm }]}>
-            <View style={styles.cardHeader}>
-              <Feather name="zap" size={16} color={Colors.red} />
-              <Text style={styles.cardTitle}>FIRE</Text>
-            </View>
-            <Text style={styles.cardValue}>{fireProgress.toFixed(0)}%</Text>
-            <View style={styles.fireBar}>
-              <View style={[styles.fireBarFill, { width: `${Math.min(fireProgress, 100)}%` }]} />
-            </View>
-            <Text style={styles.fireEta}>
-              {fireYears <= 0 ? '🎉 You can retire!' : `~${fireYears}y to go`}
-            </Text>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${Math.max(fireProgress, 2)}%` }]} />
           </View>
-        </View>
+        </TouchableOpacity>
 
-        {/* Investment Snapshot */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Investments</Text>
-            <TouchableOpacity onPress={() => router.push('/tabs/investments')}>
-              <Text style={styles.seeAll}>See all →</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.investRow}>
-            {INVESTMENT_TYPES.map(type => {
-              const invs = investments.filter(i => i.type === type.id);
-              if (invs.length === 0) return null;
-              const total = invs.reduce((s, i) => s + i.currentValue, 0);
-              return (
-                <TouchableOpacity
-                  key={type.id}
-                  style={[styles.investChip, { borderColor: `${type.color}40` }]}
-                  onPress={() => router.push('/tabs/investments')}
-                >
-                  <Text style={styles.investChipIcon}>{getTypeEmoji(type.id)}</Text>
-                  <Text style={styles.investChipLabel}>{type.label}</Text>
-                  <Text style={[styles.investChipValue, { color: type.color }]}>
-                    {formatCurrency(total, true)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            {investments.length === 0 && (
-              <TouchableOpacity
-                style={styles.addInvestPrompt}
-                onPress={() => router.push('/tabs/investments')}
-              >
-                <Feather name="plus-circle" size={20} color={Colors.purple} />
-                <Text style={styles.addInvestText}>Add your first investment</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        </View>
-
-        {/* Recent Expenses */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Expenses</Text>
-            <TouchableOpacity onPress={() => router.push('/tabs/expenses')}>
-              <Text style={styles.seeAll}>See all →</Text>
-            </TouchableOpacity>
-          </View>
-          {recentExpenses.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>💸</Text>
-              <Text style={styles.emptyText}>No expenses yet this month</Text>
-              <Text style={styles.emptySubtext}>Tap + to add your first expense</Text>
-            </View>
-          ) : (
-            recentExpenses.map(exp => (
-              <View key={exp.id} style={styles.expenseRow}>
-                <View style={[styles.expenseDot, {
-                  backgroundColor: exp.addedBy === 'husband' ? Colors.husband : Colors.wife,
-                }]} />
-                <View style={styles.expenseInfo}>
-                  <Text style={styles.expenseNote} numberOfLines={1}>
-                    {exp.note || exp.category}
-                  </Text>
-                  <Text style={styles.expenseMeta}>
-                    {exp.addedBy === 'husband' ? husband.name : wife.name} •{' '}
-                    {new Date(exp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                  </Text>
-                </View>
-                <Text style={styles.expenseAmount}>{formatCurrency(exp.amount, true)}</Text>
-              </View>
-            ))
-          )}
-        </View>
-
-        <View style={{ height: 20 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/modals/add-expense')}
-        activeOpacity={0.85}
+    
+      {/* Floating AI Receipt Button */}
+      <TouchableOpacity 
+        style={styles.fab} 
+        activeOpacity={0.9} 
+        onPress={() => {
+          if (isPro) {
+            router.push('/modals/scan-receipt');
+          } else {
+            router.push('/modals/paywall');
+          }
+        }}
       >
-        <Feather name="plus" size={28} color={Colors.white} />
+        <Feather name="camera" size={24} color="#FFF" />
       </TouchableOpacity>
+
     </SafeAreaView>
   );
 }
 
-function getTypeEmoji(type: string): string {
-  const emojis: Record<string, string> = {
-    mutual_fund: '📈', stock: '📊', us_etf: '🇺🇸',
-    non_us_etf: '🌍', fd: '🏦', rd: '📅',
-    ppf: '🛡️', nps: '💼', epfo: '👔', bond: '📜', chit: '🎱',
-  };
-  return emojis[type] ?? '💰';
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgPrimary },
-  scroll: { padding: Spacing.md, paddingBottom: 100 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
-  greeting: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
-  familyName: { fontSize: FontSize.xl, color: Colors.textPrimary, fontWeight: '800' },
-  avatarBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { fontSize: 22 },
-  // Net Worth Card
-  netWorthCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderWidth: 1, borderColor: `${Colors.purple}30`,
-    overflow: 'hidden',
-  },
-  netWorthGlow: {
-    position: 'absolute', top: -40, right: -40,
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: Colors.purpleAlpha,
-  },
-  netWorthLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500', marginBottom: 4 },
-  netWorthValue: { fontSize: 38, fontWeight: '800', color: Colors.textPrimary, marginBottom: 8 },
-  netWorthBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: Spacing.md },
-  netWorthChange: { fontSize: FontSize.sm, fontWeight: '600' },
-  netWorthMeta: {
-    flexDirection: 'row', backgroundColor: Colors.bgPrimary,
-    borderRadius: Radius.md, padding: Spacing.sm,
-  },
-  metaItem: { flex: 1, alignItems: 'center' },
-  metaLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 2 },
-  metaValue: { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: '700' },
-  metaDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
-  // Small cards
-  sectionRow: { flexDirection: 'row', marginBottom: Spacing.md },
-  smallCard: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
-    padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  cardTitle: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600' },
-  cardValue: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary, marginBottom: 8 },
-  splitRow: { gap: 4 },
-  splitItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  splitDot: { width: 8, height: 8, borderRadius: 4 },
-  splitName: { fontSize: FontSize.xs, color: Colors.textMuted, flex: 1 },
-  splitAmt: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
-  fireBar: {
-    height: 6, backgroundColor: Colors.bgPrimary, borderRadius: 3, marginBottom: 8, overflow: 'hidden',
-  },
-  fireBarFill: {
-    height: '100%', borderRadius: 3,
-    backgroundColor: Colors.red,
-  },
-  fireEta: { fontSize: FontSize.xs, color: Colors.textMuted },
-  // Sections
-  section: { marginBottom: Spacing.md },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
-  seeAll: { fontSize: FontSize.sm, color: Colors.purple, fontWeight: '600' },
-  // Investment chips
-  investRow: { flexDirection: 'row' },
-  investChip: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.md,
-    marginRight: Spacing.sm, borderWidth: 1, minWidth: 110,
-  },
-  investChipIcon: { fontSize: 20, marginBottom: 4 },
-  investChipLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 2 },
-  investChipValue: { fontSize: FontSize.sm, fontWeight: '700' },
-  addInvestPrompt: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.md,
-    borderWidth: 1, borderColor: `${Colors.purple}30`, borderStyle: 'dashed',
-    alignItems: 'center', justifyContent: 'center', width: 160, gap: 8,
-  },
-  addInvestText: { fontSize: FontSize.sm, color: Colors.purple, fontWeight: '600', textAlign: 'center' },
-  // Recent expenses
-  emptyCard: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.xl,
-    alignItems: 'center', borderWidth: 1, borderColor: Colors.border,
-  },
-  emptyIcon: { fontSize: 32, marginBottom: Spacing.sm },
-  emptyText: { fontSize: FontSize.md, color: Colors.textSecondary, fontWeight: '600' },
-  emptySubtext: { fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 4 },
-  expenseRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.bgCard, borderRadius: Radius.md,
-    padding: Spacing.md, marginBottom: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  expenseDot: { width: 10, height: 10, borderRadius: 5, marginRight: Spacing.sm },
-  expenseInfo: { flex: 1 },
-  expenseNote: { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: '500' },
-  expenseMeta: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  expenseAmount: { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: '700' },
-  // FAB
   fab: {
-    position: 'absolute', bottom: 90, right: Spacing.lg,
-    width: 58, height: 58, borderRadius: 29,
-    backgroundColor: Colors.purple, alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.purple, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5, shadowRadius: 16, elevation: 10,
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
   },
+  container: { flex: 1, backgroundColor: Colors.bgPrimary },
+  header: { 
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    backgroundColor: Colors.bgPrimary,
+  },
+  headerTitle: { fontSize: FontSize.xl, fontWeight: "600", color: Colors.textPrimary },
+  scroll: { padding: Spacing.lg },
+  
+  networthCard: {
+    height: 140, borderRadius: Radius.lg, overflow: 'hidden',
+    marginBottom: Spacing.lg, padding: Spacing.lg,
+    justifyContent: 'center'
+  },
+  networthContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  networthLabel: { color: 'rgba(255,255,255,0.8)', fontSize: FontSize.md, fontWeight: '500', marginBottom: 4 },
+  networthValueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  networthValue: { color: Colors.white, fontSize: 40, fontWeight: '600', letterSpacing: -1 },
+  networthIconBg: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, justifyContent: 'space-between', marginBottom: Spacing.xl },
+  gridCard: {
+    width: '47%', backgroundColor: Colors.bgCard, borderRadius: Radius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
+    shadowColor: Colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2
+  },
+  iconBox: { width: 32, height: 32, borderRadius: Radius.sm, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.md },
+  gridLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: 4 },
+  gridValue: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.textPrimary },
+
+  sectionTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.textPrimary, marginBottom: Spacing.md },
+  
+  fireCard: {
+    backgroundColor: Colors.bgCard, padding: Spacing.lg, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.border,
+    shadowColor: Colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2
+  },
+  fireHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
+  fireHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  fireCardTitle: { fontSize: FontSize.md, fontWeight: '500', color: Colors.textPrimary },
+  fireCardSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  firePercent: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.primaryAction },
+  progressBar: { height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: Colors.primaryAction, borderRadius: 4 },
 });

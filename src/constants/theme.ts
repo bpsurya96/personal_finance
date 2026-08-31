@@ -1,12 +1,12 @@
 export const Colors = {
-  bgPrimary: '#0A0A14',
-  bgCard: '#16162A',
-  bgCardElevated: '#1E1E38',
-  bgCardGlass: 'rgba(22, 22, 42, 0.85)',
-  purple: '#7C3AED',
-  purpleLight: '#9F67FF',
-  purpleDark: '#5B21B6',
-  purpleAlpha: 'rgba(124, 58, 237, 0.15)',
+  bgPrimary: '#FAFAFA', // light grayish blue for background
+  bgCard: '#FFFFFF', // pure white for cards
+  bgCardElevated: '#FFFFFF',
+  bgCardGlass: 'rgba(255, 255, 255, 0.95)',
+  purple: '#6B4E71', 
+  purpleLight: '#8A6D90',
+  purpleDark: '#4A3451',
+  purpleAlpha: 'rgba(107, 78, 113, 0.15)',
   emerald: '#10B981',
   emeraldLight: '#34D399',
   emeraldDark: '#059669',
@@ -17,20 +17,22 @@ export const Colors = {
   red: '#EF4444',
   redLight: '#FCA5A5',
   redAlpha: 'rgba(239, 68, 68, 0.15)',
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderLight: 'rgba(255, 255, 255, 0.15)',
+  textPrimary: '#171717', // dark text
+  textSecondary: '#525252', // slightly lighter text
+  textMuted: '#A3A3A3', // placeholder/muted text
+  border: '#E5E5E5', // light border
+  borderLight: '#F5F5F5',
   husband: '#818CF8',
   wife: '#F472B6',
   white: '#FFFFFF',
   black: '#000000',
   transparent: 'transparent',
+  // Specific branded colors from images
+  primaryAction: '#262626', // almost black for buttons like Connect, Ask CFO
 };
 
 export const INVESTMENT_TYPES = [
-  { id: 'mutual_fund', label: 'Mutual Funds', icon: 'trending-up', color: '#7C3AED', category: 'equity' },
+  { id: 'mutual_fund', label: 'Mutual Funds', icon: 'trending-up', color: '#6B4E71', category: 'equity' },
   { id: 'stock', label: 'Indian Stocks', icon: 'bar-chart-2', color: '#10B981', category: 'equity' },
   { id: 'us_etf', label: 'US ETF', icon: 'globe', color: '#3B82F6', category: 'equity' },
   { id: 'non_us_etf', label: 'Non-US ETF', icon: 'map', color: '#06B6D4', category: 'equity' },

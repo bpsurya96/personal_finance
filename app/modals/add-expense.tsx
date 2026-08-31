@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform, SafeAreaView,
+  TextInput, KeyboardAvoidingView, Platform, SafeAreaView, Alert
 } from 'react-native';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useExpenseStore } from '../../src/store/useExpenseStore';
 import { useProfileStore } from '../../src/store/useProfileStore';
+import { useAuthStore } from '../../src/store/useAuthStore';
 import { Colors, Spacing, Radius, FontSize, EXPENSE_CATEGORIES } from '../../src/constants/theme';
 import { FamilyRole } from '../../src/types';
 
 export default function AddExpenseModal() {
   const { addExpense } = useExpenseStore();
   const { husband, wife } = useProfileStore();
+  const { userRecord } = useAuthStore();
 
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('food');
@@ -22,14 +24,17 @@ export default function AddExpenseModal() {
 
   const handleSave = () => {
     if (!amount || parseFloat(amount) <= 0) return;
+    if (!userRecord?.familyId) {
+      Alert.alert("Error", "You must be in a family to add expenses.");
+      return;
+    }
     addExpense({
-      familyId: 'local',
       amount: parseFloat(amount),
       category,
-      note,
+      description: note,
       addedBy,
       date: new Date(date).toISOString(),
-    });
+    }, userRecord.familyId);
     router.back();
   };
 
@@ -47,7 +52,6 @@ export default function AddExpenseModal() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Amount */}
           <View style={styles.amountCard}>
             <Text style={styles.amountLabel}>Amount</Text>
             <View style={styles.amountRow}>
@@ -64,7 +68,6 @@ export default function AddExpenseModal() {
             </View>
           </View>
 
-          {/* Who spent */}
           <Text style={styles.sectionLabel}>Who spent?</Text>
           <View style={styles.personRow}>
             <TouchableOpacity
@@ -83,7 +86,6 @@ export default function AddExpenseModal() {
             </TouchableOpacity>
           </View>
 
-          {/* Category */}
           <Text style={styles.sectionLabel}>Category</Text>
           <View style={styles.categoryGrid}>
             {EXPENSE_CATEGORIES.map(cat => (
@@ -93,14 +95,11 @@ export default function AddExpenseModal() {
                 onPress={() => setCategory(cat.id)}
               >
                 <Feather name={cat.icon as any} size={16} color={category === cat.id ? cat.color : Colors.textMuted} />
-                <Text style={[styles.catLabel, category === cat.id && { color: cat.color }]}>
-                  {cat.label}
-                </Text>
+                <Text style={[styles.catLabel, category === cat.id && { color: cat.color }]}>{cat.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* Note */}
           <Text style={styles.sectionLabel}>Note (optional)</Text>
           <TextInput
             style={styles.noteInput}
@@ -108,16 +107,6 @@ export default function AddExpenseModal() {
             placeholderTextColor={Colors.textMuted}
             value={note}
             onChangeText={setNote}
-          />
-
-          {/* Date */}
-          <Text style={styles.sectionLabel}>Date</Text>
-          <TextInput
-            style={styles.noteInput}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={Colors.textMuted}
-            value={date}
-            onChangeText={setDate}
           />
 
           <TouchableOpacity style={styles.bigSaveBtn} onPress={handleSave}>
@@ -134,49 +123,26 @@ export default function AddExpenseModal() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bgPrimary },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
   closeBtn: { padding: 4 },
   headerTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
   saveBtn: { backgroundColor: Colors.purple, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 6 },
   saveBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
   scroll: { padding: Spacing.md },
-  amountCard: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.lg,
-    marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
-  },
+  amountCard: { backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' },
   amountLabel: { fontSize: FontSize.sm, color: Colors.textMuted, marginBottom: 8 },
   amountRow: { flexDirection: 'row', alignItems: 'center' },
   rupeeSign: { fontSize: 32, color: Colors.textSecondary, fontWeight: '700', marginRight: 4 },
   amountInput: { fontSize: 48, fontWeight: '800', color: Colors.textPrimary, minWidth: 100 },
   sectionLabel: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '600', marginBottom: 8, marginTop: 16 },
   personRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: 4 },
-  personBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
-    padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
-  },
+  personBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   personEmoji: { fontSize: 20 },
   personName: { fontSize: FontSize.md, color: Colors.textSecondary, fontWeight: '600' },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  catChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.bgCard, borderRadius: Radius.md,
-    paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
-  },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.bgCard, borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
   catLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '500' },
-  noteInput: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Spacing.md,
-    color: Colors.textPrimary, fontSize: FontSize.md, borderWidth: 1, borderColor: Colors.border,
-  },
-  bigSaveBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.purple, borderRadius: Radius.lg, padding: Spacing.md, marginTop: Spacing.xl,
-    shadowColor: Colors.purple, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
+  noteInput: { backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, borderWidth: 1, borderColor: Colors.border },
+  bigSaveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.purple, borderRadius: Radius.lg, padding: Spacing.md, marginTop: Spacing.xl, shadowColor: Colors.purple, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
   bigSaveBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.lg },
 });
